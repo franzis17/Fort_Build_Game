@@ -39,13 +39,13 @@ public class JFXArena extends Pane
         // Here's how (in JavaFX) you get an Image object from an image file that's part of the 
         // project's "resources". If you need multiple different images, you can modify this code 
         // accordingly.
-        
+
         // (NOTE: _DO NOT_ use ordinary file-reading operations here, and in particular do not try
         // to specify the file's path/location. That will ruin things if you try to create a 
         // distributable version of your code with './gradlew build'. The approach below is how a 
         // project is supposed to read its own internal resources, and should work both for 
         // './gradlew run' and './gradlew build'.)
-                
+
         try(InputStream is = getClass().getClassLoader().getResourceAsStream(IMAGE_FILE))
         {
             if(is == null)
@@ -65,7 +65,6 @@ public class JFXArena extends Pane
         getChildren().add(canvas);
     }
     
-    
     /**
      * Moves a robot image to a new grid position. This is highly rudimentary, as you will need
      * many different robots in practice. This method currently just serves as a demonstration.
@@ -76,6 +75,7 @@ public class JFXArena extends Pane
         robotY = y;
         requestLayout();
     }
+    
     
     /**
      * Adds a callback for when the user clicks on a grid square within the arena. The callback 
@@ -103,7 +103,7 @@ public class JFXArena extends Pane
         }
         listeners.add(newListener);
     }
-        
+
         
     /**
      * This method is called in order to redraw the screen, either because the user is manipulating 
@@ -127,7 +127,6 @@ public class JFXArena extends Pane
             
         double arenaPixelWidth = gridWidth * gridSquareSize;
         double arenaPixelHeight = gridHeight * gridSquareSize;
-            
             
         // Draw the arena grid lines. This may help for debugging purposes, and just generally
         // to see what's going on.
