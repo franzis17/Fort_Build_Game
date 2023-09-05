@@ -101,7 +101,7 @@ public class JFXArena extends Pane
                 }
             });
         }
-        listeners.add(newListener);
+        listeners.add(newListener);  // maybe use blockingqueue instead of linkedlist to build walls
     }
 
         

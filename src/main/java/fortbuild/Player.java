@@ -23,7 +23,7 @@ public class Player
                 }
                 Thread.sleep(1000);
             }
-            catch (InterruptedException ie) { }
+            catch (InterruptedException ie) {}
         }
     }
     
