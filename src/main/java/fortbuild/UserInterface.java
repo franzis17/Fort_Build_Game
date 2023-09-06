@@ -23,9 +23,14 @@ public class UserInterface
         // Setup UI
         stage.setTitle("Example App (JavaFX)");
         JFXArena arena = new JFXArena();
+        
+        // On mouse click, player wants to build a wall
         arena.addListener((x, y) ->
         {
             System.out.println("Arena click at (" + x + "," + y + ")");
+            
+            // build wall
+            arena.buildWall(x, y);
         });
         
         ToolBar toolbar = new ToolBar();
@@ -34,12 +39,12 @@ public class UserInterface
         scoreLabel = new Label("Score: 999");
         // toolbar.getItems().addAll(btn1, btn2, label);
         toolbar.getItems().addAll(scoreLabel);
-        
+
         // btn1.setOnAction((event) ->
         // {
         //     System.out.println("Button 1 pressed");
         // });
-                    
+
         log = new TextArea();
         log.appendText("Hello\n");
         log.appendText("World\n");

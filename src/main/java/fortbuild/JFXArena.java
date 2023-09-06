@@ -16,8 +16,12 @@ import java.util.*;
 public class JFXArena extends Pane
 {
     // Represents an image to draw, retrieved as a project resource.
-    private static final String IMAGE_FILE = "1554047213.png";
+    private static final String ROBOT_FILE = "robot.png";
+    private static final String WALL_FILE = "wall-full.png";
+    private static final String WALL_BROKEN_FILE = "wall-broken.png";
     private Image robot1;
+    private Image wallImg;
+    private Image brokenImg;
     
     // The following values are arbitrary, and you may need to modify them according to the 
     // requirements of your application.
@@ -25,6 +29,10 @@ public class JFXArena extends Pane
     private int gridHeight = 9;
     private double robotX = 1.0;
     private double robotY = 3.0;
+    
+    // test wall building
+    private double wallX = 1.0;
+    private double wallY = 3.0;
 
     private double gridSquareSize; // Auto-calculated
     private Canvas canvas; // Used to provide a 'drawing surface'.
@@ -36,33 +44,39 @@ public class JFXArena extends Pane
      */
     public JFXArena()
     {
-        // Here's how (in JavaFX) you get an Image object from an image file that's part of the 
-        // project's "resources". If you need multiple different images, you can modify this code 
-        // accordingly.
-
-        // (NOTE: _DO NOT_ use ordinary file-reading operations here, and in particular do not try
-        // to specify the file's path/location. That will ruin things if you try to create a 
-        // distributable version of your code with './gradlew build'. The approach below is how a 
-        // project is supposed to read its own internal resources, and should work both for 
-        // './gradlew run' and './gradlew build'.)
-
-        try(InputStream is = getClass().getClassLoader().getResourceAsStream(IMAGE_FILE))
-        {
-            if(is == null)
-            {
-                throw new AssertionError("Cannot find image file " + IMAGE_FILE);
-            }
-            robot1 = new Image(is);
-        }
-        catch(IOException e)
-        {
-            throw new AssertionError("Cannot load image file " + IMAGE_FILE, e);
-        }
+        robot1 = openImgFile(ROBOT_FILE);
+        wallImg = openImgFile(WALL_FILE);
+        brokenImg = openImgFile(WALL_BROKEN_FILE);
         
         canvas = new Canvas();
         canvas.widthProperty().bind(widthProperty());
         canvas.heightProperty().bind(heightProperty());
         getChildren().add(canvas);
+    }
+
+    /**
+     * Here's how (in JavaFX) you get an Image object from an image file that's part of the
+     * project's "resources". If you need multiple different images,you can modify this 
+     * code accordingly.
+     */
+    private Image openImgFile(String imgFilename)
+    {
+        Image img = null;
+        
+        try(InputStream is = getClass().getClassLoader().getResourceAsStream(imgFilename))
+        {
+            if(is == null)
+            {
+                throw new AssertionError("Cannot find image file " + imgFilename);
+            }
+            img = new Image(is);
+        }
+        catch(IOException e)
+        {
+            throw new AssertionError("Cannot load image file " + imgFilename, e);
+        }
+        
+        return img;
     }
     
     /**
@@ -73,6 +87,13 @@ public class JFXArena extends Pane
     {
         robotX = x;
         robotY = y;
+        requestLayout();
+    }
+    
+    public void buildWall(double x, double y)
+    {
+        wallX = x;
+        wallY = y;
         requestLayout();
     }
     
@@ -104,7 +125,7 @@ public class JFXArena extends Pane
         listeners.add(newListener);  // maybe use blockingqueue instead of linkedlist to build walls
     }
 
-        
+
     /**
      * This method is called in order to redraw the screen, either because the user is manipulating 
      * the window, OR because you've called 'requestLayout()'.
@@ -145,10 +166,15 @@ public class JFXArena extends Pane
             gfx.strokeLine(0.0, y, arenaPixelWidth, y);
         }
 
+
         // Invoke helper methods to draw things at the current location.
         // ** You will need to adapt this to the requirements of your application. **
-        drawImage(gfx, robot1, robotX, robotY);
-        drawLabel(gfx, "Robot Name", robotX, robotY);
+        
+        
+        // drawImage(gfx, robot1, robotX, robotY);
+        // drawLabel(gfx, "Robot Name", robotX, robotY);
+        
+        drawImage(gfx, wallImg, wallX, wallY);
     }
     
     
