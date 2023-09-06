@@ -9,16 +9,32 @@ public class Player
     private int score;  private Object scoreMutex = new Object();
     private UserInterface ui;
     
-    public Player(UserInterface ui)
+    public Player()
     {
         score = 0;
+    }
+    
+    public void setUI(UserInterface ui)
+    {
         this.ui = ui;
+    }
+    
+    public void startScoreCount()
+    {
+        try
+        {
+            startScoreThread();
+        }
+        catch(IllegalStateException ise)
+        {
+            System.out.println("ERROR When trying to start scoreThread: " + ise.getMessage());
+        }
     }
     
     /**
      * Every second, the score increases by 10 points
      */
-    public void startScoreCount() throws IllegalStateException
+    public void startScoreThread() throws IllegalStateException
     {
         if(scoreThread != null)
         {
@@ -36,7 +52,7 @@ public class Player
                     {
                         score += 10;
                     }
-                    ui.logScore(score);
+                    ui.setScore(score);
                     Thread.sleep(1000);
                 }
             }
@@ -49,7 +65,19 @@ public class Player
         scoreThread.start();
     }
     
-    public void stopScoreCount() throws IllegalStateException
+    public void stopScoreCount()
+    {
+        try
+        {
+            stopScoreThread();
+        }
+        catch(IllegalStateException ise)
+        {
+            System.out.println("ERROR: " + ise.getMessage());
+        }
+    }
+    
+    public void stopScoreThread() throws IllegalStateException
     {
         if(scoreThread == null)
         {
@@ -70,7 +98,7 @@ public class Player
         synchronized(scoreMutex)
         {
             score += addedScore;
-            ui.logScore(score);
+            ui.setScore(score);
         }
     }
 }

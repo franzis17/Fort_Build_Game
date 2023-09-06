@@ -8,16 +8,19 @@ import javafx.stage.Stage;
 
 public class UserInterface
 {
+    private Label scoreLabel;
     private TextArea log;
     
-    public UserInterface() {}
+    private Player player;
+    
+    public UserInterface(Player player)
+    {
+        this.player = player;
+    }
     
     public void show(Stage stage)
     {
-        Player player = new Player(this);
-        
         // Setup UI
-        
         stage.setTitle("Example App (JavaFX)");
         JFXArena arena = new JFXArena();
         arena.addListener((x, y) ->
@@ -28,9 +31,9 @@ public class UserInterface
         ToolBar toolbar = new ToolBar();
         // Button btn1 = new Button("My Button 1");
         // Button btn2 = new Button("My Button 2");
-        Label label = new Label("Score: 999");
+        scoreLabel = new Label("Score: 999");
         // toolbar.getItems().addAll(btn1, btn2, label);
-        toolbar.getItems().addAll(label);
+        toolbar.getItems().addAll(scoreLabel);
         
         // btn1.setOnAction((event) ->
         // {
@@ -62,20 +65,12 @@ public class UserInterface
         
         // Setup assets
         
-        try
-        {
-            player.startScoreCount();
-        }
-        catch(IllegalStateException ise)
-        {
-            System.out.println("ERROR: " + ise.getMessage());
-        }
     }
 
-    public void logScore(int score)
+    public void setScore(int score)
     {
         Platform.runLater(() -> {
-            log.setText("Score = " + score);
+            scoreLabel.setText("Score = " + score);
         });
     }
 }

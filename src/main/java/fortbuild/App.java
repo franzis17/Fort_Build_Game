@@ -1,9 +1,6 @@
 package fortbuild;
 
-import javafx.application.*;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.application.Application;
 import javafx.stage.Stage;
 
 public class App extends Application 
@@ -16,6 +13,12 @@ public class App extends Application
     @Override
     public void start(Stage stage) 
     {
-        new UserInterface().show(stage);
+        Player player = new Player();
+        UserInterface ui = new UserInterface(player);
+        player.setUI(ui);
+        
+        ui.show(stage);
+
+        player.startScoreCount();
     }
 }
