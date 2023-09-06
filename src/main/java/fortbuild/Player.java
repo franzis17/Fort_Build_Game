@@ -7,12 +7,12 @@ public class Player
     private Thread scoreThread;
     
     private int score;  private Object scoreMutex = new Object();
-    private App app;
+    private UserInterface ui;
     
-    public Player(App app)
+    public Player(UserInterface ui)
     {
         score = 0;
-        this.app = app;
+        this.ui = ui;
     }
     
     /**
@@ -28,21 +28,21 @@ public class Player
         
         Runnable incrScoreTask = () ->
         {
-            while(true)
+            try
             {
-                try
+                while(true)
                 {
                     synchronized(scoreMutex)  // lock because increaseScore() is modified by another thread
                     {
                         score += 10;
                     }
-                    app.logScore(score);
+                    ui.logScore(score);
                     Thread.sleep(1000);
                 }
-                catch (InterruptedException ie)
-                {
-                    System.out.println("Interrupted Score count!");
-                }
+            }
+            catch(InterruptedException ie)
+            {
+                System.out.println("Interrupted Score count!");
             }
         };
         scoreThread = new Thread(incrScoreTask, "score-thread");
@@ -53,20 +53,24 @@ public class Player
     {
         if(scoreThread == null)
         {
-            throw new IllegalStateException();
+            throw new IllegalStateException(
+                "ERROR: Tried to stop scoreThread but it is not created yet");
         }
         
         scoreThread.interrupt();
         scoreThread = null;
     }
     
+    /** 
+     * Called by another thread when a robot gets destroyed by a wall
+     */
     public void increaseScore(int addedScore)
     {
         // Each time a robot gets destroyed, increase points by 100
         synchronized(scoreMutex)
         {
             score += addedScore;
-            app.logScore(score);
+            ui.logScore(score);
         }
     }
 }
