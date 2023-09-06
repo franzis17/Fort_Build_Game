@@ -1,38 +1,72 @@
 package fortbuild;
 
+import javafx.scene.control.*;
+
 public class Player
 {
-    private int score;
-    private Object scoreMutex = new Object();
+    private Thread scoreThread;
     
-    public Player()
+    private int score;  private Object scoreMutex = new Object();
+    private App app;
+    
+    public Player(App app)
     {
         score = 0;
+        this.app = app;
     }
     
-    public void startScoreCount()
+    /**
+     * Every second, the score increases by 10 points
+     */
+    public void startScoreCount() throws IllegalStateException
     {
-        // Every second, the score increases by 10 points
-        while(true)
+        if(scoreThread != null)
         {
-            try
-            {
-                synchronized(scoreMutex)
-                {
-                    score += 10;
-                }
-                Thread.sleep(1000);
-            }
-            catch (InterruptedException ie) {}
+            throw new IllegalStateException(
+                "Tried to create a thread for startScoreCount() but thread already exists");
         }
+        
+        Runnable incrScoreTask = () ->
+        {
+            while(true)
+            {
+                try
+                {
+                    synchronized(scoreMutex)  // lock because increaseScore() is modified by another thread
+                    {
+                        score += 10;
+                    }
+                    app.logScore(score);
+                    Thread.sleep(1000);
+                }
+                catch (InterruptedException ie)
+                {
+                    System.out.println("Interrupted Score count!");
+                }
+            }
+        };
+        scoreThread = new Thread(incrScoreTask, "score-thread");
+        scoreThread.start();
     }
     
-    public void increaseScore(int score)
+    public void stopScoreCount() throws IllegalStateException
+    {
+        if(scoreThread == null)
+        {
+            throw new IllegalStateException();
+        }
+        
+        scoreThread.interrupt();
+        scoreThread = null;
+    }
+    
+    public void increaseScore(int addedScore)
     {
         // Each time a robot gets destroyed, increase points by 100
         synchronized(scoreMutex)
         {
-            this.score += score;
+            score += addedScore;
+            app.logScore(score);
         }
     }
 }

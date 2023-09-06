@@ -1,6 +1,6 @@
 package fortbuild;
 
-import javafx.application.Application;
+import javafx.application.*;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -13,9 +13,13 @@ public class App extends Application
         launch();        
     }
     
+    private TextArea log;
+    
     @Override
     public void start(Stage stage) 
     {
+        Player player = new Player(this);
+        
         stage.setTitle("Example App (JavaFX)");
         JFXArena arena = new JFXArena();
         arena.addListener((x, y) ->
@@ -35,12 +39,12 @@ public class App extends Application
 //             System.out.println("Button 1 pressed");
 //         });
                     
-        TextArea logger = new TextArea();
-        logger.appendText("Hello\n");
-        logger.appendText("World\n");
+        log = new TextArea();
+        log.appendText("Hello\n");
+        log.appendText("World\n");
         
         SplitPane splitPane = new SplitPane();
-        splitPane.getItems().addAll(arena, logger);
+        splitPane.getItems().addAll(arena, log);
         arena.setMinWidth(300.0);
         
         BorderPane contentPane = new BorderPane();
@@ -48,7 +52,33 @@ public class App extends Application
         contentPane.setCenter(splitPane);
         
         Scene scene = new Scene(contentPane, 800, 800);
+        
         stage.setScene(scene);
+        
+        // When user closes a window
+        // stage.setOnCloseRequest(event -> {
+        //     player.
+        // });
+        
         stage.show();
+        
+        // Setup assets
+        
+        try
+        {
+            player.startScoreCount();
+        }
+        catch(IllegalStateException ise)
+        {
+            System.out.println("ERROR: " + ise.getMessage());
+        }
+        
+    }
+    
+    public void logScore(int score)
+    {
+        Platform.runLater(() -> {
+            log.setText("Score = " + score);
+        });
     }
 }
