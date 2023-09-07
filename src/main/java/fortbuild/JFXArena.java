@@ -1,5 +1,6 @@
 package fortbuild;
 
+import javafx.application.*;
 import javafx.scene.canvas.*;
 import javafx.geometry.VPos;
 import javafx.scene.image.Image;
@@ -9,12 +10,15 @@ import javafx.scene.text.TextAlignment;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.*;
 
 /**
  * A JavaFX GUI element that displays a grid on which you can draw images, text and lines.
  */
 public class JFXArena extends Pane
 {
+    private final int WALL_LIMIT = 10;
+    
     // Represents an image to draw, retrieved as a project resource.
     private static final String ROBOT_FILE = "robot.png";
     private static final String WALL_FILE = "wall-full.png";
@@ -31,13 +35,20 @@ public class JFXArena extends Pane
     private double robotY = 3.0;
     
     // test wall building
-    private double wallX = 1.0;
-    private double wallY = 3.0;
+    private double wallX = 0.0;
+    private double wallY = 0.0;
 
     private double gridSquareSize; // Auto-calculated
     private Canvas canvas; // Used to provide a 'drawing surface'.
 
     private List<ArenaListener> listeners = null;
+    
+    // List of Objects that will need to be drawn
+    private List<Robot> robots = null;
+    //private List<Wall> walls = null;
+    
+    private BlockingQueue<Wall> wallQueue = new ArrayBlockingQueue<>(WALL_LIMIT);
+    
     
     /**
      * Creates a new arena object, loading the robot image and initialising a drawing surface.
@@ -90,13 +101,6 @@ public class JFXArena extends Pane
         requestLayout();
     }
     
-    public void buildWall(double x, double y)
-    {
-        wallX = x;
-        wallY = y;
-        requestLayout();
-    }
-    
     
     /**
      * Adds a callback for when the user clicks on a grid square within the arena. The callback 
@@ -123,6 +127,17 @@ public class JFXArena extends Pane
             });
         }
         listeners.add(newListener);  // maybe use blockingqueue instead of linkedlist to build walls
+    }
+    
+    public void enqueueWall(Wall newWall)
+    {
+        boolean status = wallQueue.offer(newWall);
+        if(status == false)
+        {
+            System.out.println("No space");
+            System.out.println(wallQueue.size());
+        }
+        requestLayout();
     }
 
 
@@ -166,15 +181,55 @@ public class JFXArena extends Pane
             gfx.strokeLine(0.0, y, arenaPixelWidth, y);
         }
 
-
+        // -- original code ---
         // Invoke helper methods to draw things at the current location.
         // ** You will need to adapt this to the requirements of your application. **
+        //drawImage(gfx, robot1, robotX, robotY);
+        //drawLabel(gfx, "Robot Name", robotX, robotY);
         
+        // -- Specify the objects that will need to be drawn --
+        // maybe use a ThreadPool here to do the draw task
         
-        // drawImage(gfx, robot1, robotX, robotY);
-        // drawLabel(gfx, "Robot Name", robotX, robotY);
+        // for loop draw robots from the list of robots
         
-        drawImage(gfx, wallImg, wallX, wallY);
+        // Draw the robots
+        // <write code here>
+
+        // Draw the Walls
+        ExecutorService wallExecutor = Executors.newFixedThreadPool(WALL_LIMIT*2);
+        List<Wall> wallList = new ArrayList<>(wallQueue);
+        for(Wall wall : wallList)
+        {
+            wallExecutor.submit(() -> {
+                Platform.runLater(() -> {
+                    drawImage(gfx, wallImg, wall.getX(), wall.getY());
+                });
+            });
+        }
+        
+        shutdownExecutor(wallExecutor);
+    }
+    
+    private void shutdownExecutor(ExecutorService executor)
+    {
+        if(executor == null)
+        {
+            return;  // No need to shutdown if there is no executor
+        }
+
+        // Initiate Shutdown
+        executor.shutdown();
+        
+        try {
+            // Wait for 30 seconds before FORCE SHUTDOWN
+            if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
+                System.out.println("Some tasks didn't finish in time. Forcing shutdown.");
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException ie) {
+            System.out.println("Thread was interrupted while waiting for it to finish");
+            executor.shutdownNow(); // Force shutdown if waiting was interrupted
+        }
     }
     
     
@@ -188,7 +243,7 @@ public class JFXArena extends Pane
      */
     private void drawImage(GraphicsContext gfx, Image image, double gridX, double gridY)
     {
-        // Get the pixel coordinates representing the centre of where the image is to be drawn. 
+        // Get the pixel coordinates representing the centre of where the image is to be drawn.
         double x = (gridX + 0.5) * gridSquareSize;
         double y = (gridY + 0.5) * gridSquareSize;
         

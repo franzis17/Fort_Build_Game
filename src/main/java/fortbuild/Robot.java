@@ -4,7 +4,10 @@ public class Robot
 {
     private int id;
     private int d;  // delay
-    private GridCoordinates coords;
+    
+    // Coordinates in the grid
+    private int x;
+    private int y;
     
     public Robot(int id, int d)
     {
@@ -12,7 +15,7 @@ public class Robot
         this.d = d;
     }
     
-    // move randomly towards the Citadel
+    // move randomly BUT towards the Citadel
     
     
 }

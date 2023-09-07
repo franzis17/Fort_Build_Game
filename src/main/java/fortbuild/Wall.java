@@ -1,11 +1,11 @@
 package fortbuild;
 
-public class GridCoordinates
+public class Wall
 {
-    private int x;
+    private int x;  // Where to place the wall at
     private int y;
     
-    public GridCoordinates(int x, int y)
+    public Wall(int x, int y)
     {
         this.x = x;
         this.y = y;
@@ -19,5 +19,10 @@ public class GridCoordinates
     public int getY()
     {
         return y;
+    }
+    
+    public String getCoords()
+    {
+        return String.format("%d,%d", x,y);
     }
 }
