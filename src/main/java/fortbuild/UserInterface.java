@@ -15,25 +15,27 @@ public class UserInterface
     private JFXArena arena;
 
     private Player player;
+    private WallCoordinator wallCdtr;
     
-    public UserInterface(Player player)
+    public UserInterface(Player player, WallCoordinator wallCdtr)
     {
         this.player = player;
+        this.wallCdtr = wallCdtr;
     }
     
     public void show(Stage stage)
     {
+        System.out.println("UI Thread name: " + Thread.currentThread());
+
         // Setup UI
         stage.setTitle("Example App (JavaFX)");
-        arena = new JFXArena();
-        System.out.println("Thread name: " + Thread.currentThread());
+        arena = new JFXArena(wallCdtr);
         
         // On mouse click, create a wall and add it to the wall builder
         arena.addListener((x, y) ->
         {
             System.out.println("Arena click at (" + x + "," + y + ")");
             
-            //wallBuilder.enqueue(new Wall(x, y));
             arena.enqueueWall(new Wall(x, y));
         });
         
@@ -69,6 +71,7 @@ public class UserInterface
         stage.setOnCloseRequest(event -> 
         {
             player.stopScoreCount();
+            arena.endWallBuilder();
         });
         
         stage.show();

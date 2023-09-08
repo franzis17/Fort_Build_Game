@@ -47,13 +47,19 @@ public class JFXArena extends Pane
     private List<Robot> robots = null;
     
     private BlockingQueue<Wall> wallQueue = new ArrayBlockingQueue<>(WALL_LIMIT);
+    private ConcurrentHashMap<String, Wall> wallMap = new ConcurrentHashMap<>();
     
+    private WallCoordinator wallCdtr;
+    
+    private volatile Thread wallBuilderThread = null;
     
     /**
      * Creates a new arena object, loading the robot image and initialising a drawing surface.
      */
-    public JFXArena()
+    public JFXArena(WallCoordinator wallCdtr)
     {
+        this.wallCdtr = wallCdtr;
+        
         robot1 = openImgFile(ROBOT_FILE);
         wallImg = openImgFile(WALL_FILE);
         brokenImg = openImgFile(WALL_BROKEN_FILE);
@@ -62,6 +68,9 @@ public class JFXArena extends Pane
         canvas.widthProperty().bind(widthProperty());
         canvas.heightProperty().bind(heightProperty());
         getChildren().add(canvas);
+        
+        // Start background tasks
+        startWallBuilder();
     }
 
     /**
@@ -129,13 +138,112 @@ public class JFXArena extends Pane
     
     public void enqueueWall(Wall newWall)
     {
+        // If the map is full, do not add anymore
+        if(wallMap.size() >= WALL_LIMIT)
+        {
+            System.out.println("The Arena can only have 10 walls");
+            System.out.println("Amount of Walls in Map = " + wallMap.size());
+            return;
+        }
+        // Do not add if the queue is full
         boolean status = wallQueue.offer(newWall);
         if(status == false)
         {
             System.out.println("No space");
             System.out.println(wallQueue.size());
+            return;
         }
-        requestLayout();
+    }
+    
+    /** Checks if there is a wall that needs to be added */
+    // private void startWallBuilder()
+    // {
+    //     if(wallBuilderThread != null)
+    //     {
+    //         return;  // Do not start a new wall builder if there is already one
+    //     }
+        
+    //     wallBuilderThread = new Thread(() ->
+    //     {
+    //         try
+    //         {
+    //             while(!Thread.interrupted())
+    //             {
+    //                 // Build a wall from queue every 2 seconds
+    //                 Thread.sleep(2000);
+    //                 System.out.println("Wall Builder...");
+                    
+    //                 Wall newWall = null;
+    //                 do
+    //                 {
+    //                     newWall = wallQueue.poll();
+    //                     // If square is already occupied by a wall, ignore
+    //                     if(wallIsOccupied(newWall))
+    //                     {
+    //                         System.out.println("A wall already exist in "
+    //                             + "("+newWall.getCoords()+")");
+    //                     }
+    //                     else if (newWall != null)
+    //                     {
+    //                         // put wall in hashmap
+    //                         System.out.println("Putting wall in hashmap");
+    //                         wallMap.put(newWall.getCoords(), newWall);
+    //                         drawArena();
+    //                     }
+    //                 } while(wallIsOccupied(newWall));
+    //             }
+    //         }
+    //         catch(InterruptedException ie)
+    //         {
+    //             System.out.println("Interrupted Wall Builder");
+    //         }
+    //     });
+    //     wallBuilderThread.start();
+    // }
+    
+    private void startWallBuilder()
+    {
+        ScheduledExecutorService wallBuildScheduler = Executors.newScheduledThreadPool(1);
+        
+        // Builds a wall every 2 seconds
+        wallBuildScheduler.scheduleAtFixedRate(() ->
+        {
+            System.out.println("Building a wall...");
+            
+            Wall newWall = wallQueue.poll();
+            if(wallIsOccupied(newWall))
+            {
+                System.out.println("A wall already exist in "
+                        + "("+newWall.getCoords()+")");
+            }
+            else if(newWall != null)
+            {
+                // If there are no more space in the map, then do not put anymore walls
+                if(wallMap.size() == 10)
+                {
+                    System.out.println("Cannot do wall command, The Arena can only have 10 walls");
+                    System.out.println("Amount of Walls in Map = " + wallMap.size());
+                    // if the wall is already full, ignore all build commands in the queue
+                    wallQueue.clear();
+                }
+                else
+                {
+                    System.out.println("Putting wall in hashmap");
+                    wallMap.put(newWall.getCoords(), newWall);
+                    drawArena();
+                }
+            }
+        }, 0, 2, TimeUnit.SECONDS);
+    }
+    
+    public void endWallBuilder()
+    {
+        if(wallBuilderThread == null)
+        {
+            return;  // Thread does not exist so it cannot be interrupted
+        }
+        wallBuilderThread.interrupt();
+        wallBuilderThread = null;
     }
 
 
@@ -194,20 +302,20 @@ public class JFXArena extends Pane
         // <write code here>
 
         // Draw the Walls
+        // Uses a Thread Pool to draw all the walls at once
+        
+        
         ExecutorService wallExecutor = Executors.newFixedThreadPool(WALL_LIMIT*2);
-        List<Wall> wallList = new ArrayList<>(wallQueue);
-        for(Wall wall : wallList)
+        wallMap.forEach((wallCoord, wall) ->
         {
             wallExecutor.submit(() ->
             {
-                // If wall is already occupied, do not build it
                 Platform.runLater(() ->
                 {
                     drawImage(gfx, wallImg, wall.getX(), wall.getY());
                 });
             });
-        }
-        
+        });
         ThreadPoolManager.shutdownExecutor(wallExecutor);
     }
     
@@ -292,5 +400,28 @@ public class JFXArena extends Pane
                        (clippedGridY1 + 0.5) * gridSquareSize, 
                        (gridX2 + 0.5) * gridSquareSize, 
                        (gridY2 + 0.5) * gridSquareSize);
+    }
+    
+    private void drawArena()
+    {
+        Platform.runLater(() ->
+        {
+            requestLayout();
+        });
+    }
+    
+    private boolean wallIsOccupied(Wall newWall)
+    {
+        if(newWall == null)
+        {
+            return false;
+        }
+        if(wallMap.containsKey(newWall.getCoords()))
+        {
+            System.out.println("A wall already exist in "
+                        + "("+newWall.getCoords()+")");
+            return true;
+        }
+        return false;
     }
 }
