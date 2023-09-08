@@ -17,7 +17,7 @@ import java.util.concurrent.*;
  */
 public class JFXArena extends Pane
 {
-    private final int WALL_LIMIT = 10;
+    private final int WALL_LIMIT = 10;  // Max amount of walls that can be in the screen
     
     // Represents an image to draw, retrieved as a project resource.
     private static final String ROBOT_FILE = "robot.png";
@@ -45,7 +45,6 @@ public class JFXArena extends Pane
     
     // List of Objects that will need to be drawn
     private List<Robot> robots = null;
-    //private List<Wall> walls = null;
     
     private BlockingQueue<Wall> wallQueue = new ArrayBlockingQueue<>(WALL_LIMIT);
     
@@ -100,7 +99,6 @@ public class JFXArena extends Pane
         robotY = y;
         requestLayout();
     }
-    
     
     /**
      * Adds a callback for when the user clicks on a grid square within the arena. The callback 
@@ -200,38 +198,18 @@ public class JFXArena extends Pane
         List<Wall> wallList = new ArrayList<>(wallQueue);
         for(Wall wall : wallList)
         {
-            wallExecutor.submit(() -> {
-                Platform.runLater(() -> {
+            wallExecutor.submit(() ->
+            {
+                // If wall is already occupied, do not build it
+                Platform.runLater(() ->
+                {
                     drawImage(gfx, wallImg, wall.getX(), wall.getY());
                 });
             });
         }
         
-        shutdownExecutor(wallExecutor);
+        ThreadPoolManager.shutdownExecutor(wallExecutor);
     }
-    
-    private void shutdownExecutor(ExecutorService executor)
-    {
-        if(executor == null)
-        {
-            return;  // No need to shutdown if there is no executor
-        }
-
-        // Initiate Shutdown
-        executor.shutdown();
-        
-        try {
-            // Wait for 30 seconds before FORCE SHUTDOWN
-            if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
-                System.out.println("Some tasks didn't finish in time. Forcing shutdown.");
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException ie) {
-            System.out.println("Thread was interrupted while waiting for it to finish");
-            executor.shutdownNow(); // Force shutdown if waiting was interrupted
-        }
-    }
-    
     
     /** 
      * Draw an image in a specific grid location. *Only* call this from within layoutChildren(). 
