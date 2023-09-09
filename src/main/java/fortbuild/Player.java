@@ -6,15 +6,10 @@ public class Player
 {
     private Thread scoreThread;
     
-    private int score;  private Object scoreMutex = new Object();
+    private int score = 0;  private Object scoreMutex = new Object();
     private UserInterface ui;
     
-    public Player()
-    {
-        score = 0;
-    }
-    
-    public void setUI(UserInterface ui)
+    public Player(UserInterface ui)
     {
         this.ui = ui;
     }

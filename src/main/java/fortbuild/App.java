@@ -8,20 +8,19 @@ public class App extends Application
     public static void main(String[] args) 
     {
         launch();
-        // TestApp test = new TestApp();
-        // test.main();
+        //runTest();
+    }
+    
+    public static void runTest()
+    {
+        TestApp test = new TestApp();
+        test.main();
     }
     
     @Override
-    public void start(Stage stage) 
+    public void start(Stage stage)
     {
-        Player player = new Player();
-        WallCoordinator wallCdtr = new WallCoordinator();
-        UserInterface ui = new UserInterface(player, wallCdtr);
-
+        UserInterface ui = new UserInterface();
         ui.show(stage);
-
-        player.setUI(ui);
-        player.startScoreCount();
     }
 }

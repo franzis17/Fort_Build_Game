@@ -23,6 +23,6 @@ public class Wall
     
     public String getCoords()
     {
-        return String.format("%d,%d", x,y);
+        return (x+","+y);
     }
 }

@@ -26,6 +26,7 @@ public class ThreadPoolManager
                 System.out.println("Some tasks didn't finish in time. Forcing shutdown.");
                 List<Runnable> unexecutedTasks = executor.shutdownNow();
                 handleUnexecutedTasks(unexecutedTasks);
+                executor = null;
             }
         }
         catch(InterruptedException ie)
@@ -38,10 +39,11 @@ public class ThreadPoolManager
     /**
      * Write/Handle what to do with unexecutedTasks
      */
-    private static void handleUnexecutedTasks(List<Runnable> unexecutedTasks) {
+    private static void handleUnexecutedTasks(List<Runnable> unexecutedTasks)
+    {
         System.out.println("Forced shutdown, now handling unexecuted tasks");
-        // Below code is just an example, which outputs all the unexecutedTasks that wasn't done
-        for (Runnable task : unexecutedTasks) {
+        for (Runnable task : unexecutedTasks)
+        {   // Below code is just an example, which outputs all unexecutedTasks
             System.out.println("Task: " + task.toString() + " was not done.");
         }
     }

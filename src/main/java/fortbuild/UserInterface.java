@@ -13,29 +13,26 @@ public class UserInterface
     private TextArea log;
     
     private JFXArena arena;
-
     private Player player;
-    private WallCoordinator wallCdtr;
+    private RobotGenerator robotGenerator;
     
-    public UserInterface(Player player, WallCoordinator wallCdtr)
+    public UserInterface()
     {
-        this.player = player;
-        this.wallCdtr = wallCdtr;
+        arena = new JFXArena();
+        player = new Player(this);  // Give it UI since it changes the score
+        robotGenerator = new RobotGenerator(arena);
     }
     
     public void show(Stage stage)
     {
         System.out.println("UI Thread name: " + Thread.currentThread());
 
-        // Setup UI
         stage.setTitle("Example App (JavaFX)");
-        arena = new JFXArena(wallCdtr);
-        
+
         // On mouse click, create a wall and add it to the wall builder
         arena.addListener((x, y) ->
         {
             System.out.println("Arena click at (" + x + "," + y + ")");
-            
             arena.enqueueWall(new Wall(x, y));
         });
         
@@ -64,17 +61,27 @@ public class UserInterface
         contentPane.setCenter(splitPane);
         
         Scene scene = new Scene(contentPane, 800, 800);
-        
         stage.setScene(scene);
-        
-        // On window close, stop all background running threads
-        stage.setOnCloseRequest(event -> 
-        {
-            player.stopScoreCount();
-            arena.endWallBuilder();
-        });
-        
         stage.show();
+
+        try
+        {
+            // Start background threads
+            player.startScoreCount();
+            robotGenerator.start();
+            
+            // On window close, stop all background running threads
+            stage.setOnCloseRequest(event -> 
+            {
+                player.stopScoreCount();
+                arena.endWallBuilder();
+                robotGenerator.stop();
+            });
+        }
+        catch(IllegalStateException ise)
+        {
+            System.out.println("ERROR: " + ise.getMessage());
+        }
     }
 
     public void setScore(int score)
@@ -99,7 +106,7 @@ public class UserInterface
     
     public void testRobotMovement()
     {
-        System.out.println("Testing Robot movement");
-        arena.setRobotPosition(8, 8);
+        // System.out.println("Testing Robot movement");
+        // arena.setRobotPosition(8, 8);
     }
 }
