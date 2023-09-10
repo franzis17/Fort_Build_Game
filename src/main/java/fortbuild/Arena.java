@@ -15,7 +15,7 @@ import java.util.concurrent.*;
 /**
  * A JavaFX GUI element that displays a grid on which you can draw images, text and lines.
  */
-public class JFXArena extends Pane
+public class Arena extends Pane
 {
     private final int WALL_LIMIT = 10;  // Max amount of walls that can be in the screen
     
@@ -29,8 +29,12 @@ public class JFXArena extends Pane
     
     // The following values are arbitrary, and you may need to modify them according to the 
     // requirements of your application.
-    private int gridWidth = 9;
-    private int gridHeight = 9;
+    private int gridWidth;   // x
+    private int gridHeight;  // y
+    
+    // Coordinate location of the centre/citadel (integer division rounds down)
+    private int xCentre;
+    private int yCentre;
 
     private double gridSquareSize; // Auto-calculated
     private Canvas canvas; // Used to provide a 'drawing surface'.
@@ -38,7 +42,7 @@ public class JFXArena extends Pane
     private List<ArenaListener> listeners = null;
     
     // Limited amount of Robots that can be drawn in the UI
-    private final int ROBOT_LIMIT = gridWidth * gridHeight;
+    private int robotLimit;
     
     private BlockingQueue<Wall> wallQueue = new ArrayBlockingQueue<>(WALL_LIMIT);
     private ConcurrentHashMap<String, Wall> wallMap = new ConcurrentHashMap<>();
@@ -49,11 +53,22 @@ public class JFXArena extends Pane
     /**
      * Creates a new arena object, loading the robot image and initialising a drawing surface.
      */
-    public JFXArena()
+    public Arena()
     {
         robotImg = openImgFile(ROBOT_FILE);
         wallImg = openImgFile(WALL_FILE);
         brokenImg = openImgFile(WALL_BROKEN_FILE);
+        
+        // may change to be dynamic (specified to be 9x9 in the requirements)
+        gridWidth = 9;
+        gridHeight = 9;
+        robotLimit = gridWidth * gridHeight;
+        xCentre = gridWidth / 2;
+        yCentre = gridHeight / 2;
+        
+        
+        System.out.println("x centre = " + xCentre);
+        System.out.println("y centre = " + yCentre);
         
         canvas = new Canvas();
         canvas.widthProperty().bind(widthProperty());
@@ -87,6 +102,26 @@ public class JFXArena extends Pane
         }
         
         return img;
+    }
+    
+    public int getGridWidth()
+    {
+        return gridWidth;
+    }
+    
+    public int getGridHeight()
+    {
+        return gridHeight;
+    }
+    
+    public int getXCentre()
+    {
+        return xCentre;
+    }
+    
+    public int getYCentre()
+    {
+        return yCentre;
     }
     
     // /**
@@ -155,6 +190,23 @@ public class JFXArena extends Pane
         return false;
     }
     
+    /** 
+     * Uses an executor to stop each robots from moving on the map all at once.
+     * Gets called when the user wishes to close the app window.
+     */
+    public void stopAllRobots()
+    {
+        ExecutorService stopRobotsExecutor = Executors.newFixedThreadPool(robotLimit);
+        robotMap.forEach((robotCoords, robot) ->
+        {
+            stopRobotsExecutor.submit(() ->
+            {
+                robot.stop();
+            });
+        });
+        ThreadPoolManager.shutdownExecutor(stopRobotsExecutor);
+    }
+    
     
     // ** WALL BUILDING **
     
@@ -209,7 +261,7 @@ public class JFXArena extends Pane
                         return;
                     }
                     
-                    // If a wall is occupied, loop until the next wall is not occupied so
+                    // If a wall is occupied, loop to find a wall that is not occupied so
                     // there is no delay when building the next wall.
                     while(wallIsOccupied(newWall))
                     {
@@ -238,7 +290,7 @@ public class JFXArena extends Pane
     }
 
     /** Called when the user closes the app window */
-    public void endWallBuilder()
+    public void stopWallBuilder()
     {
         if(wallBuilderThread == null)
         {
@@ -312,9 +364,9 @@ public class JFXArena extends Pane
         
         // ** Uses two executors to draw the Robots and Walls all at once **
         
-        // Draw the robots
-        ExecutorService drawRobotsExecutor = Executors.newFixedThreadPool(ROBOT_LIMIT);
-        robotMap.forEach((robotCoord, robot) ->
+        // Draw the robots all at once
+        ExecutorService drawRobotsExecutor = Executors.newFixedThreadPool(robotLimit);
+        robotMap.forEach((robotCoords, robot) ->
         {
             drawRobotsExecutor.submit(() ->
             {
@@ -326,9 +378,9 @@ public class JFXArena extends Pane
             });
         });
 
-        // Draw the walls
+        // Draw the walls all at once
         ExecutorService drawWallsExecutor = Executors.newFixedThreadPool(WALL_LIMIT*2);
-        wallMap.forEach((wallCoord, wall) ->
+        wallMap.forEach((wallCoords, wall) ->
         {
             drawWallsExecutor.submit(() ->
             {
@@ -428,7 +480,7 @@ public class JFXArena extends Pane
     }
     
     /** Calls GUI Thread to request for layout */
-    private void drawArena()
+    public void drawArena()
     {
         Platform.runLater(() ->
         {

@@ -12,13 +12,13 @@ public class UserInterface
     private Label scoreLabel;
     private TextArea log;
     
-    private JFXArena arena;
+    private Arena arena;
     private Player player;
     private RobotGenerator robotGenerator;
     
     public UserInterface()
     {
-        arena = new JFXArena();
+        arena = new Arena();
         player = new Player(this);  // Give it UI since it changes the score
         robotGenerator = new RobotGenerator(arena);
     }
@@ -32,7 +32,7 @@ public class UserInterface
         // On mouse click, create a wall and add it to the wall builder
         arena.addListener((x, y) ->
         {
-            System.out.println("Arena click at (" + x + "," + y + ")");
+            //System.out.println("Arena click at (" + x + "," + y + ")");
             arena.enqueueWall(new Wall(x, y));
         });
         
@@ -74,8 +74,9 @@ public class UserInterface
             stage.setOnCloseRequest(event -> 
             {
                 player.stopScoreCount();
-                arena.endWallBuilder();
                 robotGenerator.stop();
+                arena.stopWallBuilder();
+                arena.stopAllRobots();
             });
         }
         catch(IllegalStateException ise)
@@ -88,7 +89,7 @@ public class UserInterface
     {
         Platform.runLater(() ->
         {
-            scoreLabel.setText("Score = " + score);
+            scoreLabel.setText("Score: " + score);
         });
     }
     

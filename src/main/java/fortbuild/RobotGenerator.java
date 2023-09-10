@@ -3,6 +3,11 @@ package fortbuild;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Producer of Robots and adds it to the ConcurrentHashMap of Robots in Arena.
+ * Once it finds an unoccupied random corner for the robot to place, it initiates
+ * the robot to move.
+ */
 public class RobotGenerator
 {
     // Index number of the 4 corners in the 2-D Array of Integers
@@ -15,25 +20,37 @@ public class RobotGenerator
     private static final int Y = 1;
     
     // To know what the end of the grid is (could be changed later to be dynamic)
-    private int endX = 8;
-    private int endY = 8;
+    private int endX;
+    private int endY;
+    // Needed by Robots to know where the centre so it can move there
+    private int xCentre;
+    private int yCentre;
     
     private Thread robotGenThread = null;  // only main app thread accesses this
     
     // Grid coordinates of the 4 corners
     private int[][] gridCorners = new int[4][2];        // 4 corners with 2 coords, x and y
-    private final int[] topLeftCoord = {0, 0};          // Top Left Corner at: x = 0, y = 0
-    private final int[] topRightCoord = {endX, 0};
-    private final int[] bottomLeftCoord = {0, endY};
-    private final int[] bottomRightCoord = {endX, endY};
+    private int[] topLeftCoord;          
+    private int[] topRightCoord;
+    private int[] bottomLeftCoord;
+    private int[] bottomRightCoord;
     
-    private JFXArena arena;
+    private Arena arena;
     
-    public RobotGenerator(JFXArena arena)
+    public RobotGenerator(Arena arena)
     {
         this.arena = arena;
+        endX = arena.getGridWidth() - 1;
+        endY = arena.getGridHeight() - 1;
+        xCentre = arena.getXCentre();
+        yCentre = arena.getYCentre();
 
         // Initialise the four corners of the grid to place the robot in
+        topLeftCoord = new int[] { 0, 0 };
+        topRightCoord = new int[] { endX, 0 };
+        bottomLeftCoord = new int[] { 0, endY };
+        bottomRightCoord = new int[] { endX, endY };
+        
         gridCorners[TOP_LEFT] = topLeftCoord;          // gridCorners[0] = top-left coords
         gridCorners[TOP_RIGHT] = topRightCoord;        // gridCorners[1] = top-right coords
         gridCorners[BOTTOM_LEFT] = bottomLeftCoord;    // gridCorners[2] = bottom-left coords
@@ -51,38 +68,49 @@ public class RobotGenerator
         
         Runnable robotGenTask = () ->
         {
-            // Create one robot first and test the movement
+            int robotIdCounter = 1;  // only accessed by one thread
+
             while(true)
             {
                 try
                 {
-                    int robotIdCounter = 1;  // only accessed by one thread
+                    // Wait for 1500ms to place the robot
+                    Thread.sleep(1500);
                     
                     // Pick a random corner location
                     int[] randomCorner = getRandomCorner();
+                    System.out.println("Random Corner: ("+randomCorner[X]+","+randomCorner[Y]+")");
                     
                     // Create a robot with the coordinate location of the random corner
                     Robot newRobot = new Robot(
-                        0,  // Put 0 for now, will change when there are no robots occupied
+                        0,  // id is set below once a Robot is placed in an unoccupied position
                         MathUtility.getRandomNum(500, 2000),  // Delay value between 500-2000
                         randomCorner[X],
-                        randomCorner[Y]
+                        randomCorner[Y],
+                        arena
                     );
-                    
-                    // Wait for 1500ms to place the robot
-                    Thread.sleep(1500);
 
                     if(!arena.robotIsOccupied(newRobot))
                     {
+                        // Place robot in arena , then start robot movement
                         System.out.println("Placed Robot at ("+newRobot.getCoords()+")");
                         newRobot.setId(robotIdCounter++);
+                        newRobot.startMoving();
                         arena.addRobot(newRobot);
                     }
                 }
                 catch(InterruptedException ie)
                 {
                     System.out.println("Interrupted Robot Generation");
-                    break;
+                    break;  // Only exit out of the loop when interrupted(stopped)
+                }
+                catch(IllegalStateException ise)
+                {
+                    System.out.println(">>> ERROR: " + ise.getMessage());
+                }
+                catch(IllegalArgumentException iae)
+                {
+                    System.out.println(">>> ERROR: " + iae.getMessage());
                 }
             }
         };
@@ -93,7 +121,7 @@ public class RobotGenerator
     /** Called by main app thread when a user clicks on close window */
     public void stop()
     {
-        if(robotGenThread == null)
+        if(robotGenThread == null)  // Sanity Check
         {
             throw new IllegalStateException("Tried to stop robot generator but there"
                 + " is none.");

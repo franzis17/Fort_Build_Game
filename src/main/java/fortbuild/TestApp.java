@@ -23,10 +23,11 @@ public class TestApp
     /** Call one of the methods below to test a function */
     public void main()
     {
-        //testConcurrentHashMap();
-        //testScheduledThreadPool();
-        //testRandomNumber();
-        testCorners();
+        // testConcurrentHashMap();
+        // testScheduledThreadPool();
+        // testRandomNumber();
+        // testCorners();
+        testRounding();
     }
     
     public void testConcurrentHashMap()
@@ -146,5 +147,20 @@ public class TestApp
         {
             System.out.println("Interrupted");
         }
+    }
+    
+    public void testRounding()
+    {
+        System.out.println("Testing Rounding a number by ceiling function");
+        double num = 7;
+        double half = num / 2;
+        System.out.println("Number = " + num + ", (Double) / 2 = " + half);
+        int floorResult = (int)Math.floor(num / 2);
+        int ceilResult = (int)Math.ceil(num / 2);
+        System.out.println("Floor Result = " + floorResult);
+        System.out.println("Ceil Result = " + ceilResult);
+        
+        int numInt = 7;
+        System.out.println("Number = " + numInt + ", (int) / 2 = " + (numInt/2));
     }
 }
