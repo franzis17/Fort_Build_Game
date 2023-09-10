@@ -18,7 +18,7 @@ public class RobotGenerator
     private int endX = 8;
     private int endY = 8;
     
-    private volatile Thread robotGenThread = null;
+    private Thread robotGenThread = null;  // only main app thread accesses this
     
     // Grid coordinates of the 4 corners
     private int[][] gridCorners = new int[4][2];        // 4 corners with 2 coords, x and y
@@ -51,13 +51,17 @@ public class RobotGenerator
         
         Runnable robotGenTask = () ->
         {
-            try
+            // Create one robot first and test the movement
+            while(true)
             {
-                int robotIdCounter = 1;  // only accessed by one thread
-                while(!Thread.interrupted())
+                try
                 {
+                    int robotIdCounter = 1;  // only accessed by one thread
+                    
+                    // Pick a random corner location
                     int[] randomCorner = getRandomCorner();
                     
+                    // Create a robot with the coordinate location of the random corner
                     Robot newRobot = new Robot(
                         0,  // Put 0 for now, will change when there are no robots occupied
                         MathUtility.getRandomNum(500, 2000),  // Delay value between 500-2000
@@ -65,25 +69,28 @@ public class RobotGenerator
                         randomCorner[Y]
                     );
                     
+                    // Wait for 1500ms to place the robot
+                    Thread.sleep(1500);
+
                     if(!arena.robotIsOccupied(newRobot))
                     {
-                        System.out.println("Corner is not occupied, placing the robot");
-                        System.out.println("Robot Coords = " + newRobot.getCoords());
+                        System.out.println("Placed Robot at ("+newRobot.getCoords()+")");
                         newRobot.setId(robotIdCounter++);
                         arena.addRobot(newRobot);
                     }
-                    Thread.sleep(1500);
                 }
-            }
-            catch(InterruptedException ie)
-            {
-                System.out.println("Interrupted Robot Generation");
+                catch(InterruptedException ie)
+                {
+                    System.out.println("Interrupted Robot Generation");
+                    break;
+                }
             }
         };
         robotGenThread = new Thread(robotGenTask);
         robotGenThread.start();
     }
     
+    /** Called by main app thread when a user clicks on close window */
     public void stop()
     {
         if(robotGenThread == null)

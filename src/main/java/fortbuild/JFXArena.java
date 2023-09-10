@@ -44,8 +44,7 @@ public class JFXArena extends Pane
     private ConcurrentHashMap<String, Wall> wallMap = new ConcurrentHashMap<>();
     private ConcurrentHashMap<String, Robot> robotMap = new ConcurrentHashMap<>();
     
-    private ScheduledExecutorService wallBuildScheduler;
-    private volatile Thread wallBuilderThread = null;
+    private Thread wallBuilderThread = null;  // only the main app thread accesses this
     
     /**
      * Creates a new arena object, loading the robot image and initialising a drawing surface.
@@ -128,89 +127,125 @@ public class JFXArena extends Pane
         listeners.add(newListener);  // maybe use blockingqueue instead of linkedlist to build walls
     }
     
-    /** Called by RobotGenerator Thread whenever it has generated a new robot */
+    
+    // ** ROBOT METHODS **
+    
+    
+    /** Called by RobotGenerator whenever it has generated a new robot */
     public void addRobot(Robot newRobot)
     {
         if(newRobot == null)
-        {
             return;
-        }
-        if(!robotIsOccupied(newRobot))
-        {
-            System.out.println("Putting Robot in robotMap");
-            robotMap.put(newRobot.getCoords(), newRobot);  // Uses ConcurrentHashMap
-            drawArena();
-        }
+        
+        // RobotGenerator checks if robot is occupied or not
+        
+        robotMap.put(newRobot.getCoords(), newRobot);  // Uses ConcurrentHashMap
+        drawArena();
     }
     
+    /** Called by RobotGenerator to check if there is a robot */
     public boolean robotIsOccupied(Robot newRobot)
     {
         if(robotMap.containsKey(newRobot.getCoords()))
         {
-            System.out.println("The grid " + newRobot.getCoords()
-                + " is already occupied with Robots.");
+            // System.out.println("The grid " + newRobot.getCoords() +
+            //     " is already occupied with Robots.");
             return true;
         }
         return false;
     }
     
     
+    // ** WALL BUILDING **
+    
+    
+    /** 
+     * Adds wall to wallQueue(BlockingQueue) and then wall builder thread takes it out
+     * to put it in the Arena's ConcurrentHashMap of Walls, which then gets drawn
+     */
     public void enqueueWall(Wall newWall)
     {
-        // If the map is full, do not add anymore
-        if(wallMap.size() >= WALL_LIMIT)
+        if(wallMap.size() >= WALL_LIMIT)  // If walls are full
         {
-            System.out.println("The Arena can only have 10 walls");
-            System.out.println("Amount of Walls in Map = " + wallMap.size());
-            return;
+            System.out.println(">>> INVALID: The Arena can only have 10 walls. " +
+                "Amount of Walls in Map = " + wallMap.size());
         }
-        // Do not add if the queue is full
-        boolean status = wallQueue.offer(newWall);
-        if(status == false)
+        else
         {
-            System.out.println("No space");
-            System.out.println(wallQueue.size());
-            return;
-        }
-    }
-
-    private void startWallBuilder()
-    {
-        wallBuildScheduler = Executors.newScheduledThreadPool(1);
-        
-        // Builds a wall every 2 seconds
-        wallBuildScheduler.scheduleAtFixedRate(() ->
-        {
-            System.out.println("Building a wall...");
-            
-            Wall newWall = wallQueue.poll();
-            if(newWall == null)
-            {   // ignore
-            }
-            else if(wallMap.size() >= WALL_LIMIT)
+            // Do not add if the queue is full
+            boolean status = wallQueue.offer(newWall);
+            if(status == false)
             {
-                System.out.println("Cannot do wall command, The Arena can only have 10 walls");
-                System.out.println("Amount of Walls in Map = " + wallMap.size());
-                // if the wall is already full, ignore all build commands in the queue
-                wallQueue.clear();
+                System.out.println("No space");
+                System.out.println(wallQueue.size());
             }
-            else if(!wallIsOccupied(newWall))
-            {   
-                System.out.println("Putting wall in hashmap");
-                wallMap.put(newWall.getCoords(), newWall);
-                drawArena();
-            }
-        }, 0, 2, TimeUnit.SECONDS);
+        }
     }
     
-    /** Called when the user closes the window */
+    /** Builds a wall every 2 seconds. If occupied, quickly find next wall to build. */
+    private void startWallBuilder()
+    {
+        Runnable wallBuilderTask = () ->
+        {
+            while(true)
+            {
+                try
+                {
+                    // Wait for next wall building command
+                    Wall newWall = wallQueue.take();
+
+                    // wait for 2 seconds to build the wall
+                    Thread.sleep(2000);
+                    
+                    // If there is already 10 walls ("more than" symbol is put for safety check)
+                    if(wallMap.size() >= WALL_LIMIT)
+                    {
+                        System.out.println(">>>INVALID: " +
+                            "Cannot do wall command, The Arena can only have 10 walls\n" +
+                            "Amount of Walls in Map = " + wallMap.size());
+                        // clear all build commands so it processes the user's
+                        // latest command when a wall gets destroyed
+                        wallQueue.clear();
+                        return;
+                    }
+                    
+                    // If a wall is occupied, loop until the next wall is not occupied so
+                    // there is no delay when building the next wall.
+                    while(wallIsOccupied(newWall))
+                    {
+                        System.out.println("Wall is occupied, quickly finding next wall");
+                        newWall = wallQueue.poll();  // do not wait here
+                        
+                        if(newWall == null)
+                        {
+                            return;  // wait at the start if there are no more build commands
+                        }
+                    }
+                    
+                    System.out.println("Wall put in at ("+ newWall.getCoords()+")");
+                    wallMap.put(newWall.getCoords(), newWall);
+                    drawArena();  // calls GUI Thread
+                }
+                catch(InterruptedException ie)
+                {
+                    System.out.println("INTERRUPTED Wall Builder Task");
+                    break;  // break out of the loop when done
+                }
+            }
+        };
+        wallBuilderThread = new Thread(wallBuilderTask, "wall-builder");
+        wallBuilderThread.start();
+    }
+
+    /** Called when the user closes the app window */
     public void endWallBuilder()
     {
-        if(wallBuildScheduler == null)
+        if(wallBuilderThread == null)
         {
-            return;  // Thread does not exist so it cannot be interrupted
+            return;
         }
-        ThreadPoolManager.shutdownExecutor(wallBuildScheduler);
+        wallBuilderThread.interrupt();
+        wallBuilderThread = null;
     }
     
     /** Checks the map if the map already contains a wall in the coordinates */
@@ -218,12 +253,16 @@ public class JFXArena extends Pane
     {
         if(wallMap.containsKey(newWall.getCoords()))
         {
-            System.out.println("A wall already exist in "
-                        + "("+newWall.getCoords()+")");
+            System.out.println(">>>INVALID: A wall already exist in "
+                + "("+newWall.getCoords()+")");
             return true;
         }
         return false;
     }
+
+
+    // ** DRAW METHODS **
+
 
     /**
      * This method is called in order to redraw the screen, either because the user is manipulating 
@@ -271,7 +310,7 @@ public class JFXArena extends Pane
         //drawImage(gfx, robot1, robotX, robotY);
         //drawLabel(gfx, "Robot Name", robotX, robotY);
         
-        // ** Uses two executors to draw each object types all at once **
+        // ** Uses two executors to draw the Robots and Walls all at once **
         
         // Draw the robots
         ExecutorService drawRobotsExecutor = Executors.newFixedThreadPool(ROBOT_LIMIT);
@@ -388,6 +427,7 @@ public class JFXArena extends Pane
                        (gridY2 + 0.5) * gridSquareSize);
     }
     
+    /** Calls GUI Thread to request for layout */
     private void drawArena()
     {
         Platform.runLater(() ->

@@ -14,27 +14,15 @@ public class Player
         this.ui = ui;
     }
     
-    public void startScoreCount()
-    {
-        try
-        {
-            startScoreThread();
-        }
-        catch(IllegalStateException ise)
-        {
-            System.out.println("ERROR When trying to start scoreThread: " + ise.getMessage());
-        }
-    }
-    
     /**
      * Every second, the score increases by 10 points
      */
-    public void startScoreThread() throws IllegalStateException
+    public void startScoreCount() throws IllegalStateException
     {
         if(scoreThread != null)
         {
-            throw new IllegalStateException(
-                "Tried to create a thread for startScoreCount() but thread already exists");
+            throw new IllegalStateException("Tried to create a thread for "
+                + "startScoreCount() but thread already exists");
         }
         
         Runnable incrScoreTask = () ->
@@ -60,24 +48,12 @@ public class Player
         scoreThread.start();
     }
     
-    public void stopScoreCount()
-    {
-        try
-        {
-            stopScoreThread();
-        }
-        catch(IllegalStateException ise)
-        {
-            System.out.println("ERROR: " + ise.getMessage());
-        }
-    }
-    
-    public void stopScoreThread() throws IllegalStateException
+    public void stopScoreCount() throws IllegalStateException
     {
         if(scoreThread == null)
         {
-            throw new IllegalStateException(
-                "ERROR: Tried to stop scoreThread but it is not created yet");
+            throw new IllegalStateException("Tried to stop scoreThread "
+                + "but it is not created yet");
         }
         
         scoreThread.interrupt();

@@ -53,6 +53,19 @@ public class Robot
         this.id = id;
     }
     
+
     // move randomly BUT towards the Citadel
+    public void startMoving()
+    {
+        // 
+    }
     
+    /**
+     * Called by the user when they close the app window. This is collectively called
+     * in Arena to stop each Robot in the robotMap.
+     */
+    public void stop()
+    {
+        
+    }
 }
