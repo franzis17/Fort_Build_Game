@@ -1,7 +1,5 @@
 package fortbuild;
 
-import javafx.scene.control.*;
-
 public class Player
 {
     private Thread scoreThread;
@@ -52,8 +50,7 @@ public class Player
     {
         if(scoreThread == null)
         {
-            throw new IllegalStateException("Tried to stop scoreThread "
-                + "but it is not created yet");
+            return;
         }
         
         scoreThread.interrupt();
