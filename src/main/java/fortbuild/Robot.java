@@ -22,9 +22,10 @@ public class Robot
     public Robot(int id, int d, int x, int y, Arena arena)
     {
         if(delayIsInvalid(d))
+        {
             throw new IllegalArgumentException("Delay must be between 500-2000, got: " + d);
+        }
         
-        System.out.println("ROBOT: Delay value = " + d);
         this.id = id;
         this.d = d;
         this.x = x;
@@ -103,8 +104,13 @@ public class Robot
     
     private void moveHorizontally()
     {
+        if(inCitadel())
+        {
+            System.out.println("Game over!");
+            // arena.gameOver();
+        }
         // Move left or right towards the centre
-        if(x < xCentre)
+        else if(x < xCentre)
         {
             moveRight();
         }
@@ -116,14 +122,19 @@ public class Robot
         // then the way towards the Citadel will only be up or down
         else if(x == xCentre)  
         {
-            moveVertically();  
+            moveVertically();
         }
     }
     
     private void moveVertically()
     {
+        if(inCitadel())
+        {
+            System.out.println("Game over!");
+            // arena.gameOver();
+        }
         // Move up or down towards the centre
-        if(y < yCentre)
+        else if(y < yCentre)
         {
             moveDown();
         }
@@ -159,28 +170,21 @@ public class Robot
                     
                     // Move either horizontally or vertically towards the Citadel
                     int randomMovement = MathUtility.getRandomNum(0, 1);
-                    switch(randomMovement)
+                    if(randomMovement == HORIZONTAL)
                     {
-                        case HORIZONTAL:
-                            moveHorizontally();
-                            break;
-                        case VERTICAL:
-                            moveVertically();
-                            break;
+                        moveHorizontally();
                     }
-                    
-                    // If the robot reaches the Centre/Citadel, game should finish
-                    if(x == xCentre && y == yCentre)
+                    else if(randomMovement == VERTICAL)
                     {
-                        stop();
-                        System.out.println("Game over!");
-                        // How to stop the whole game here??? Call ui?
+                        moveVertically();
                     }
 
-                    // Draw the updated position of the Robot from Arena
-                    System.out.println("Moved " + getName() + " from ("+oldLocation+") " +
-                        "to ("+getCoords()+")");
-                    arena.drawArena();
+                    if(!inCitadel())
+                    {
+                        System.out.println("Robot-"+id+" moved from (" + oldLocation
+                            + ") to ("+getCoords()+")");
+                        arena.drawArena();
+                    }
                 }
             }
             catch(InterruptedException ie)
@@ -199,7 +203,9 @@ public class Robot
     public void stop()
     {
         if(robotThread == null)
+        {
             return;
+        }
         
         robotThread.interrupt();
         robotThread = null;
@@ -212,5 +218,10 @@ public class Robot
     private boolean delayIsInvalid(int d)
     {
         return (d < 500 && d > 2000);
+    }
+    
+    private boolean inCitadel()
+    {
+        return (x == xCentre && y == yCentre);
     }
 }

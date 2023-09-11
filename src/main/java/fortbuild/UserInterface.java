@@ -10,6 +10,7 @@ public class UserInterface
 {
     // UI
     private Label scoreLabel;
+    private Label wallQueueLabel;
     private TextArea log;
     
     private Arena arena;
@@ -18,9 +19,9 @@ public class UserInterface
     
     public UserInterface()
     {
-        arena = new Arena();
+        arena = new Arena(this);
         player = new Player(this);  // Give it UI since it changes the score
-        robotGenerator = new RobotGenerator(arena);
+        robotGenerator = new RobotGenerator(this, arena);
     }
     
     public void show(Stage stage)
@@ -37,20 +38,18 @@ public class UserInterface
         });
         
         ToolBar toolbar = new ToolBar();
-        Button testBtn = new Button("Test Button");
+        // Button btn1 = new Button("Test Button");
         // Button btn2 = new Button("My Button 2");
         scoreLabel = new Label("Score: 999");
+        wallQueueLabel = new Label("Wall queue amount: 0");
         // toolbar.getItems().addAll(btn1, btn2, label);
-        toolbar.getItems().addAll(scoreLabel, testBtn);
+        toolbar.getItems().addAll(scoreLabel, wallQueueLabel);
 
-        testBtn.setOnAction((event) ->
-        {
-            testRobotMovement();
-        });
+        // btn1.setOnAction((event) ->
+        // {
+        // });
 
         log = new TextArea();
-        log.appendText("Hello\n");
-        log.appendText("World\n");
         
         SplitPane splitPane = new SplitPane();
         splitPane.getItems().addAll(arena, log);
@@ -68,6 +67,7 @@ public class UserInterface
         {
             // Start background threads
             player.startScoreCount();
+            arena.startWallBuilder();
             robotGenerator.start();
             
             // On window close, stop all background running threads
@@ -93,6 +93,14 @@ public class UserInterface
         });
     }
     
+    public void setWallQueueNum(int num)
+    {
+        Platform.runLater(() ->
+        {
+            wallQueueLabel.setText("Wall queue amount: " + num);
+        });
+    }
+    
     /**
      * Only log the following events: Each time a robot is created, the player creates a wall,
      * or a wall is impacted
@@ -101,13 +109,15 @@ public class UserInterface
     {
         Platform.runLater(() ->
         {
-            log.appendText(text);
+            log.appendText(text + "\n");
         });
     }
     
-    public void testRobotMovement()
+    /** Stops all background running threads */
+    public void stopAll()
     {
-        // System.out.println("Testing Robot movement");
-        // arena.setRobotPosition(8, 8);
+        player.stopScoreCount();
+        robotGenerator.stop();
+        setLog("Your final score: " + player.getScore());
     }
 }

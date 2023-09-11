@@ -8,13 +8,6 @@ public class App extends Application
     public static void main(String[] args) 
     {
         launch();
-        //runTest();
-    }
-    
-    public static void runTest()
-    {
-        TestApp test = new TestApp();
-        test.main();
     }
     
     @Override

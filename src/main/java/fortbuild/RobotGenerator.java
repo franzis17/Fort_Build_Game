@@ -1,8 +1,5 @@
 package fortbuild;
 
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-
 /**
  * Producer of Robots and adds it to the ConcurrentHashMap of Robots in Arena.
  * Once it finds an unoccupied random corner for the robot to place, it initiates
@@ -10,6 +7,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class RobotGenerator
 {
+    private Thread robotGenThread = null;  // only main app thread accesses this
+
     // Index number of the 4 corners in the 2-D Array of Integers
     private static final int TOP_LEFT = 0;
     private static final int TOP_RIGHT = 1;
@@ -19,37 +18,25 @@ public class RobotGenerator
     private static final int X = 0;
     private static final int Y = 1;
     
-    // To know what the end of the grid is (could be changed later to be dynamic)
-    private int endX;
-    private int endY;
-    // Needed by Robots to know where the centre so it can move there
-    private int xCentre;
-    private int yCentre;
-    
-    private Thread robotGenThread = null;  // only main app thread accesses this
-    
     // Grid coordinates of the 4 corners
     private int[][] gridCorners = new int[4][2];        // 4 corners with 2 coords, x and y
-    private int[] topLeftCoord;          
-    private int[] topRightCoord;
-    private int[] bottomLeftCoord;
-    private int[] bottomRightCoord;
     
+    private UserInterface ui;
     private Arena arena;
     
-    public RobotGenerator(Arena arena)
+    public RobotGenerator(UserInterface ui, Arena arena)
     {
+        this.ui = ui;
         this.arena = arena;
-        endX = arena.getGridWidth() - 1;
-        endY = arena.getGridHeight() - 1;
-        xCentre = arena.getXCentre();
-        yCentre = arena.getYCentre();
+
+        int endX = arena.getGridWidth() - 1;
+        int endY = arena.getGridHeight() - 1;
 
         // Initialise the four corners of the grid to place the robot in
-        topLeftCoord = new int[] { 0, 0 };
-        topRightCoord = new int[] { endX, 0 };
-        bottomLeftCoord = new int[] { 0, endY };
-        bottomRightCoord = new int[] { endX, endY };
+        int[] topLeftCoord = new int[] { 0, 0 };
+        int[] topRightCoord = new int[] { endX, 0 };
+        int[] bottomLeftCoord = new int[] { 0, endY };
+        int[] bottomRightCoord = new int[] { endX, endY };
         
         gridCorners[TOP_LEFT] = topLeftCoord;          // gridCorners[0] = top-left coords
         gridCorners[TOP_RIGHT] = topRightCoord;        // gridCorners[1] = top-right coords
@@ -79,7 +66,6 @@ public class RobotGenerator
                     
                     // Pick a random corner location
                     int[] randomCorner = getRandomCorner();
-                    System.out.println("Random Corner: ("+randomCorner[X]+","+randomCorner[Y]+")");
                     
                     // Create a robot with the coordinate location of the random corner
                     Robot newRobot = new Robot(
@@ -93,10 +79,12 @@ public class RobotGenerator
                     if(!arena.robotIsOccupied(newRobot))
                     {
                         // Place robot in arena , then start robot movement
-                        System.out.println("Placed Robot at ("+newRobot.getCoords()+")");
+                        System.out.println("Placed Robot-"+robotIdCounter
+                            +" at ("+newRobot.getCoords()+")");
+                        ui.setLog("Robot-"+robotIdCounter+" created");
                         newRobot.setId(robotIdCounter++);
-                        newRobot.startMoving();
                         arena.addRobot(newRobot);
+                        newRobot.startMoving();
                     }
                 }
                 catch(InterruptedException ie)
@@ -121,10 +109,9 @@ public class RobotGenerator
     /** Called by main app thread when a user clicks on close window */
     public void stop()
     {
-        if(robotGenThread == null)  // Sanity Check
+        if(robotGenThread == null)  // Safety Check
         {
-            throw new IllegalStateException("Tried to stop robot generator but there"
-                + " is none.");
+            return;
         }
         robotGenThread.interrupt();
         robotGenThread = null;

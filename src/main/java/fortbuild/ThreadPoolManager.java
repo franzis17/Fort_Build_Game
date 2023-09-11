@@ -8,7 +8,7 @@ import java.util.concurrent.*;
  */
 public class ThreadPoolManager
 {
-    public static void shutdownExecutor(ExecutorService executor)
+    public void shutdownExecutor(ExecutorService executor)
     {
         if(executor == null)
         {
@@ -25,8 +25,8 @@ public class ThreadPoolManager
             {
                 System.out.println("Some tasks didn't finish in time. Forcing shutdown.");
                 List<Runnable> unexecutedTasks = executor.shutdownNow();
-                handleUnexecutedTasks(unexecutedTasks);
                 executor = null;
+                handleUnexecutedTasks(unexecutedTasks);
             }
         }
         catch(InterruptedException ie)
@@ -39,7 +39,7 @@ public class ThreadPoolManager
     /**
      * Write/Handle what to do with unexecutedTasks
      */
-    private static void handleUnexecutedTasks(List<Runnable> unexecutedTasks)
+    private void handleUnexecutedTasks(List<Runnable> unexecutedTasks)
     {
         System.out.println("Forced shutdown, now handling unexecuted tasks");
         for (Runnable task : unexecutedTasks)

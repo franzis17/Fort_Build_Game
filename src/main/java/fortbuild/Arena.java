@@ -17,15 +17,18 @@ import java.util.concurrent.*;
  */
 public class Arena extends Pane
 {
-    private final int WALL_LIMIT = 10;  // Max amount of walls that can be in the screen
+    private Thread wallBuilderThread = null;  // only the main app thread accesses this
+    private ThreadPoolManager tpManager = new ThreadPoolManager();  // shutsdown executors
+    
+    private final int wallLimit = 10;  // Max amount of walls that can be in the screen
     
     // Represents an image to draw, retrieved as a project resource.
     private static final String ROBOT_FILE = "robot.png";
-    private static final String WALL_FILE = "wall-full.png";
-    private static final String WALL_BROKEN_FILE = "wall-broken.png";
     private Image robotImg;
+    private static final String WALL_FILE = "wall-full.png";
     private Image wallImg;
-    private Image brokenImg;
+    // private static final String WALL_BROKEN_FILE = "wall-broken.png";
+    // private Image brokenImg;
     
     // The following values are arbitrary, and you may need to modify them according to the 
     // requirements of your application.
@@ -44,20 +47,20 @@ public class Arena extends Pane
     // Limited amount of Robots that can be drawn in the UI
     private int robotLimit;
     
-    private BlockingQueue<Wall> wallQueue = new ArrayBlockingQueue<>(WALL_LIMIT);
+    private BlockingQueue<Wall> wallQueue = new ArrayBlockingQueue<>(wallLimit);
     private ConcurrentHashMap<String, Wall> wallMap = new ConcurrentHashMap<>();
     private ConcurrentHashMap<String, Robot> robotMap = new ConcurrentHashMap<>();
     
-    private Thread wallBuilderThread = null;  // only the main app thread accesses this
+    private UserInterface ui;
     
     /**
      * Creates a new arena object, loading the robot image and initialising a drawing surface.
      */
-    public Arena()
+    public Arena(UserInterface ui)
     {
         robotImg = openImgFile(ROBOT_FILE);
         wallImg = openImgFile(WALL_FILE);
-        brokenImg = openImgFile(WALL_BROKEN_FILE);
+        // brokenImg = openImgFile(WALL_BROKEN_FILE);
         
         // may change to be dynamic (specified to be 9x9 in the requirements)
         gridWidth = 9;
@@ -66,42 +69,12 @@ public class Arena extends Pane
         xCentre = gridWidth / 2;
         yCentre = gridHeight / 2;
         
-        
-        System.out.println("x centre = " + xCentre);
-        System.out.println("y centre = " + yCentre);
+        this.ui = ui;
         
         canvas = new Canvas();
         canvas.widthProperty().bind(widthProperty());
         canvas.heightProperty().bind(heightProperty());
         getChildren().add(canvas);
-        
-        // Start background tasks
-        startWallBuilder();
-    }
-
-    /**
-     * Here's how (in JavaFX) you get an Image object from an image file that's part of the
-     * project's "resources". If you need multiple different images,you can modify this 
-     * code accordingly.
-     */
-    private Image openImgFile(String imgFilename)
-    {
-        Image img = null;
-        
-        try(InputStream is = getClass().getClassLoader().getResourceAsStream(imgFilename))
-        {
-            if(is == null)
-            {
-                throw new AssertionError("Cannot find image file " + imgFilename);
-            }
-            img = new Image(is);
-        }
-        catch(IOException e)
-        {
-            throw new AssertionError("Cannot load image file " + imgFilename, e);
-        }
-        
-        return img;
     }
     
     public int getGridWidth()
@@ -123,17 +96,28 @@ public class Arena extends Pane
     {
         return yCentre;
     }
-    
-    // /**
-    //  * Moves a robot image to a new grid position. This is highly rudimentary, as you will need
-    //  * many different robots in practice. This method currently just serves as a demonstration.
-    //  */
-    // public void setRobotPosition(double x, double y)
-    // {
-    //     robotX = x;
-    //     robotY = y;
-    //     requestLayout();
-    // }
+
+    /**
+     * Here's how (in JavaFX) you get an Image object from an image file that's part of the
+     * project's "resources". If you need multiple different images,you can modify this 
+     * code accordingly.
+     */
+    private Image openImgFile(String imgFilename)
+    {
+        try(InputStream is = getClass().getClassLoader().getResourceAsStream(imgFilename))
+        {
+            if(is == null)
+            {
+                throw new AssertionError("Cannot find image file " + imgFilename);
+            }
+            Image img = new Image(is);
+            return img;
+        }
+        catch(IOException e)
+        {
+            throw new AssertionError("Cannot load image file " + imgFilename, e);
+        }
+    }
     
     /**
      * Adds a callback for when the user clicks on a grid square within the arena. The callback 
@@ -170,9 +154,9 @@ public class Arena extends Pane
     public void addRobot(Robot newRobot)
     {
         if(newRobot == null)
+        {
             return;
-        
-        // RobotGenerator checks if robot is occupied or not
+        }
         
         robotMap.put(newRobot.getCoords(), newRobot);  // Uses ConcurrentHashMap
         drawArena();
@@ -183,28 +167,20 @@ public class Arena extends Pane
     {
         if(robotMap.containsKey(newRobot.getCoords()))
         {
-            // System.out.println("The grid " + newRobot.getCoords() +
-            //     " is already occupied with Robots.");
             return true;
         }
         return false;
     }
     
     /** 
-     * Uses an executor to stop each robots from moving on the map all at once.
      * Gets called when the user wishes to close the app window.
      */
     public void stopAllRobots()
     {
-        ExecutorService stopRobotsExecutor = Executors.newFixedThreadPool(robotLimit);
         robotMap.forEach((robotCoords, robot) ->
         {
-            stopRobotsExecutor.submit(() ->
-            {
-                robot.stop();
-            });
+            robot.stop();
         });
-        ThreadPoolManager.shutdownExecutor(stopRobotsExecutor);
     }
     
     
@@ -217,7 +193,7 @@ public class Arena extends Pane
      */
     public void enqueueWall(Wall newWall)
     {
-        if(wallMap.size() >= WALL_LIMIT)  // If walls are full
+        if(wallMap.size() >= wallLimit)  // If walls are full
         {
             System.out.println(">>> INVALID: The Arena can only have 10 walls. " +
                 "Amount of Walls in Map = " + wallMap.size());
@@ -226,16 +202,15 @@ public class Arena extends Pane
         {
             // Do not add if the queue is full
             boolean status = wallQueue.offer(newWall);
-            if(status == false)
+            if(status == true)  // if the wall was successfully inserted
             {
-                System.out.println("No space");
-                System.out.println(wallQueue.size());
+                ui.setWallQueueNum(wallQueue.size());
             }
         }
     }
     
     /** Builds a wall every 2 seconds. If occupied, quickly find next wall to build. */
-    private void startWallBuilder()
+    public void startWallBuilder()
     {
         Runnable wallBuilderTask = () ->
         {
@@ -250,7 +225,7 @@ public class Arena extends Pane
                     Thread.sleep(2000);
                     
                     // If there is already 10 walls ("more than" symbol is put for safety check)
-                    if(wallMap.size() >= WALL_LIMIT)
+                    if(wallMap.size() >= wallLimit)
                     {
                         System.out.println(">>>INVALID: " +
                             "Cannot do wall command, The Arena can only have 10 walls\n" +
@@ -275,6 +250,7 @@ public class Arena extends Pane
                     }
                     
                     System.out.println("Wall put in at ("+ newWall.getCoords()+")");
+                    ui.setLog("Wall created");
                     wallMap.put(newWall.getCoords(), newWall);
                     drawArena();  // calls GUI Thread
                 }
@@ -355,12 +331,6 @@ public class Arena extends Pane
             double y = (double) gridY * gridSquareSize;
             gfx.strokeLine(0.0, y, arenaPixelWidth, y);
         }
-
-        // -- original code ---
-        // Invoke helper methods to draw things at the current location.
-        // ** You will need to adapt this to the requirements of your application. **
-        //drawImage(gfx, robot1, robotX, robotY);
-        //drawLabel(gfx, "Robot Name", robotX, robotY);
         
         // ** Uses two executors to draw the Robots and Walls all at once **
         
@@ -379,7 +349,7 @@ public class Arena extends Pane
         });
 
         // Draw the walls all at once
-        ExecutorService drawWallsExecutor = Executors.newFixedThreadPool(WALL_LIMIT*2);
+        ExecutorService drawWallsExecutor = Executors.newFixedThreadPool(wallLimit*2);
         wallMap.forEach((wallCoords, wall) ->
         {
             drawWallsExecutor.submit(() ->
@@ -392,8 +362,8 @@ public class Arena extends Pane
         });
         
         // After drawing all objects, must shutdown the executors
-        ThreadPoolManager.shutdownExecutor(drawRobotsExecutor);
-        ThreadPoolManager.shutdownExecutor(drawWallsExecutor);
+        tpManager.shutdownExecutor(drawRobotsExecutor);
+        tpManager.shutdownExecutor(drawWallsExecutor);
     }
     
     /** 
@@ -458,26 +428,25 @@ public class Arena extends Pane
     
     /** 
      * Draws a (slightly clipped) line between two grid coordinates.
-     *     
      * You shouldn't need to modify this method.
      */
-    private void drawLine(GraphicsContext gfx, double gridX1, double gridY1, 
-                                               double gridX2, double gridY2)
-    {
-        gfx.setStroke(Color.RED);
+    // private void drawLine(GraphicsContext gfx, double gridX1, double gridY1, 
+    //                                            double gridX2, double gridY2)
+    // {
+    //     gfx.setStroke(Color.RED);
         
-        // Recalculate the starting coordinate to be one unit closer to the destination, so that it
-        // doesn't overlap with any image appearing in the starting grid cell.
-        final double radius = 0.5;
-        double angle = Math.atan2(gridY2 - gridY1, gridX2 - gridX1);
-        double clippedGridX1 = gridX1 + Math.cos(angle) * radius;
-        double clippedGridY1 = gridY1 + Math.sin(angle) * radius;
+    //     // Recalculate the starting coordinate to be one unit closer to the destination, so that it
+    //     // doesn't overlap with any image appearing in the starting grid cell.
+    //     final double radius = 0.5;
+    //     double angle = Math.atan2(gridY2 - gridY1, gridX2 - gridX1);
+    //     double clippedGridX1 = gridX1 + Math.cos(angle) * radius;
+    //     double clippedGridY1 = gridY1 + Math.sin(angle) * radius;
         
-        gfx.strokeLine((clippedGridX1 + 0.5) * gridSquareSize, 
-                       (clippedGridY1 + 0.5) * gridSquareSize, 
-                       (gridX2 + 0.5) * gridSquareSize, 
-                       (gridY2 + 0.5) * gridSquareSize);
-    }
+    //     gfx.strokeLine((clippedGridX1 + 0.5) * gridSquareSize, 
+    //                    (clippedGridY1 + 0.5) * gridSquareSize, 
+    //                    (gridX2 + 0.5) * gridSquareSize, 
+    //                    (gridY2 + 0.5) * gridSquareSize);
+    // }
     
     /** Calls GUI Thread to request for layout */
     public void drawArena()
@@ -486,5 +455,14 @@ public class Arena extends Pane
         {
             requestLayout();
         });
+    }
+    
+    public void gameOver()
+    {
+        System.out.println("Game over!");
+        ui.setLog("Game over!");
+        stopAllRobots();
+        stopWallBuilder();
+        ui.stopAll();
     }
 }
