@@ -24,7 +24,6 @@ public class Robot
         if(delayIsInvalid(d))
             throw new IllegalArgumentException("Delay must be between 500-2000, got: " + d);
         
-        System.out.println("ROBOT: Delay value = " + d);
         this.id = id;
         this.d = d;
         this.x = x;
@@ -139,6 +138,13 @@ public class Robot
         }
     }
     
+    /** Used to test Robot waiting */
+    public void moveTo(int x, int y)
+    {
+        this.x = x;
+        this.y = y;
+    }
+    
 
     /**
      * Move randomly BUT towards the Citadel called by RobotGenerator after
@@ -169,12 +175,14 @@ public class Robot
                             break;
                     }
                     
+                    // Update arena with the robot's new location
+                    arena.moveRobot(this, oldLocation);
+                    
                     // If the robot reaches the Centre/Citadel, game should finish
                     if(x == xCentre && y == yCentre)
                     {
-                        stop();
                         System.out.println("Game over!");
-                        // How to stop the whole game here??? Call ui?
+                        arena.gameOver();
                     }
 
                     // Draw the updated position of the Robot from Arena

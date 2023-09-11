@@ -31,6 +31,8 @@ public class Arena extends Pane
     // requirements of your application.
     private int gridWidth;   // x
     private int gridHeight;  // y
+    // Limited amount of Robots that can be drawn in the UI
+    private int robotLimit;
     
     // Coordinate location of the centre/citadel (integer division rounds down)
     private int xCentre;
@@ -41,20 +43,22 @@ public class Arena extends Pane
 
     private List<ArenaListener> listeners = null;
     
-    // Limited amount of Robots that can be drawn in the UI
-    private int robotLimit;
-    
+    // Threads
     private BlockingQueue<Wall> wallQueue = new ArrayBlockingQueue<>(WALL_LIMIT);
     private ConcurrentHashMap<String, Wall> wallMap = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<String, Robot> robotMap = new ConcurrentHashMap<>();
-    
+    // Will have a BlockingQueue that fits 1 robot as its value to implement waiting functionality
+    private ConcurrentHashMap<String, BlockingQueue<Robot>> robotMap = new ConcurrentHashMap<>();
     private Thread wallBuilderThread = null;  // only the main app thread accesses this
+    
+    private UserInterface ui;
     
     /**
      * Creates a new arena object, loading the robot image and initialising a drawing surface.
      */
-    public Arena()
+    public Arena(UserInterface ui)
     {
+        this.ui = ui;
+        
         robotImg = openImgFile(ROBOT_FILE);
         wallImg = openImgFile(WALL_FILE);
         brokenImg = openImgFile(WALL_BROKEN_FILE);
@@ -62,10 +66,11 @@ public class Arena extends Pane
         // may change to be dynamic (specified to be 9x9 in the requirements)
         gridWidth = 9;
         gridHeight = 9;
-        robotLimit = gridWidth * gridHeight;
+        robotLimit = (gridWidth * gridHeight) + 20;  // allow for some room
         xCentre = gridWidth / 2;
         yCentre = gridHeight / 2;
         
+        initialiseAllGrids();
         
         System.out.println("x centre = " + xCentre);
         System.out.println("y centre = " + yCentre);
@@ -79,6 +84,26 @@ public class Arena extends Pane
         startWallBuilder();
     }
 
+    public int getGridWidth()
+    {
+        return gridWidth;
+    }
+    
+    public int getGridHeight()
+    {
+        return gridHeight;
+    }
+    
+    public int getXCentre()
+    {
+        return xCentre;
+    }
+    
+    public int getYCentre()
+    {
+        return yCentre;
+    }
+    
     /**
      * Here's how (in JavaFX) you get an Image object from an image file that's part of the
      * project's "resources". If you need multiple different images,you can modify this 
@@ -104,36 +129,28 @@ public class Arena extends Pane
         return img;
     }
     
-    public int getGridWidth()
+    /**
+     * Initialise the Robot grids to have a BlockingQueue of Robot. BlockingQueue is
+     * used for waiting functionality when the Robot moves on an occupied location
+     */
+    private void initialiseAllGrids()
     {
-        return gridWidth;
+        System.out.println("Initialising the grid...");
+        for(int x = 0; x < gridWidth; x++)
+        {
+            for(int y = 0; y < gridHeight; y++)
+            {
+                // Each grid will have a blocking queue that can only fit 1 Robot.
+                // BlockingQueue is used to implement waiting functionality if a robot
+                // already exists within a grid.
+                BlockingQueue<Robot> robotQueue = new ArrayBlockingQueue<>(1);
+                
+                // String is used as a key of each grid location, which uses a ',' (comma) to
+                // separate the actual x and y coordinates.
+                robotMap.put((x+","+y), robotQueue);
+            }
+        }
     }
-    
-    public int getGridHeight()
-    {
-        return gridHeight;
-    }
-    
-    public int getXCentre()
-    {
-        return xCentre;
-    }
-    
-    public int getYCentre()
-    {
-        return yCentre;
-    }
-    
-    // /**
-    //  * Moves a robot image to a new grid position. This is highly rudimentary, as you will need
-    //  * many different robots in practice. This method currently just serves as a demonstration.
-    //  */
-    // public void setRobotPosition(double x, double y)
-    // {
-    //     robotX = x;
-    //     robotY = y;
-    //     requestLayout();
-    // }
     
     /**
      * Adds a callback for when the user clicks on a grid square within the arena. The callback 
@@ -172,16 +189,31 @@ public class Arena extends Pane
         if(newRobot == null)
             return;
         
-        // RobotGenerator checks if robot is occupied or not
-        
-        robotMap.put(newRobot.getCoords(), newRobot);  // Uses ConcurrentHashMap
-        drawArena();
+        try
+        {
+            robotMap.get(newRobot.getCoords()).put(newRobot);
+        }
+        catch(InterruptedException ie)
+        {
+            System.out.println("INTERRUPTED: Adding of new robot at " + newRobot.getCoords());
+        }
+    }
+    
+    /** To move a robot, it must also remove itself from its old location */
+    public void moveRobot(Robot newRobot, String oldLocation)
+    {
+        // add the robot to the new location
+        addRobot(newRobot);
+
+        // remove the robot from the queue of the old location so other robots can move to it
+        Robot removedRobot = robotMap.get(oldLocation).poll();
     }
     
     /** Called by RobotGenerator to check if there is a robot */
     public boolean robotIsOccupied(Robot newRobot)
     {
-        if(robotMap.containsKey(newRobot.getCoords()))
+        // Checks the size of the grid's robotQueue to see if it contains a robot
+        if(robotMap.get(newRobot.getCoords()).size() > 0)
         {
             // System.out.println("The grid " + newRobot.getCoords() +
             //     " is already occupied with Robots.");
@@ -197,12 +229,16 @@ public class Arena extends Pane
     public void stopAllRobots()
     {
         ExecutorService stopRobotsExecutor = Executors.newFixedThreadPool(robotLimit);
-        robotMap.forEach((robotCoords, robot) ->
+        robotMap.forEach((gridCoords, gridQueue) ->
         {
-            stopRobotsExecutor.submit(() ->
+            Robot robot = gridQueue.poll();  // Remove the robot from each grid's robotQueue
+            if(robot != null)
             {
-                robot.stop();
-            });
+                stopRobotsExecutor.submit(() ->
+                {
+                    robot.stop();
+                });
+            }
         });
         ThreadPoolManager.shutdownExecutor(stopRobotsExecutor);
     }
@@ -355,26 +391,25 @@ public class Arena extends Pane
             double y = (double) gridY * gridSquareSize;
             gfx.strokeLine(0.0, y, arenaPixelWidth, y);
         }
-
-        // -- original code ---
-        // Invoke helper methods to draw things at the current location.
-        // ** You will need to adapt this to the requirements of your application. **
-        //drawImage(gfx, robot1, robotX, robotY);
-        //drawLabel(gfx, "Robot Name", robotX, robotY);
         
-        // ** Uses two executors to draw the Robots and Walls all at once **
+        // **** Uses two executors to draw the Robots and Walls all at once ****
         
         // Draw the robots all at once
         ExecutorService drawRobotsExecutor = Executors.newFixedThreadPool(robotLimit);
-        robotMap.forEach((robotCoords, robot) ->
+        robotMap.forEach((gridCoords, gridQueue) ->
         {
             drawRobotsExecutor.submit(() ->
             {
-                Platform.runLater(() ->
+                // Get the robot from each grid queue (do not need to wait)
+                Robot robot = gridQueue.poll();
+                if(robot != null)  // safety check
                 {
-                    drawImage(gfx, robotImg, robot.getX(), robot.getY());
-                    drawLabel(gfx, robot.getName(), robot.getX(), robot.getY());
-                });
+                    Platform.runLater(() ->
+                    {
+                        drawImage(gfx, robotImg, robot.getX(), robot.getY());
+                        drawLabel(gfx, robot.getName(), robot.getX(), robot.getY());
+                    });
+                }
             });
         });
 
@@ -486,5 +521,11 @@ public class Arena extends Pane
         {
             requestLayout();
         });
+    }
+    
+    /** Call ui to stop all background threads when the game is over */
+    public void gameOver()
+    {
+        ui.stopAll();
     }
 }

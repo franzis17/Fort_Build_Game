@@ -79,7 +79,6 @@ public class RobotGenerator
                     
                     // Pick a random corner location
                     int[] randomCorner = getRandomCorner();
-                    System.out.println("Random Corner: ("+randomCorner[X]+","+randomCorner[Y]+")");
                     
                     // Create a robot with the coordinate location of the random corner
                     Robot newRobot = new Robot(
@@ -93,10 +92,11 @@ public class RobotGenerator
                     if(!arena.robotIsOccupied(newRobot))
                     {
                         // Place robot in arena , then start robot movement
-                        System.out.println("Placed Robot at ("+newRobot.getCoords()+")");
+                        System.out.println("Placed robot-"+robotIdCounter+ 
+                            " at ("+newRobot.getCoords()+")");
                         newRobot.setId(robotIdCounter++);
-                        newRobot.startMoving();
                         arena.addRobot(newRobot);
+                        newRobot.startMoving();
                     }
                 }
                 catch(InterruptedException ie)

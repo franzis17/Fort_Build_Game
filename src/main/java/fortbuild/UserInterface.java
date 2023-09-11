@@ -18,7 +18,7 @@ public class UserInterface
     
     public UserInterface()
     {
-        arena = new Arena();
+        arena = new Arena(this);
         player = new Player(this);  // Give it UI since it changes the score
         robotGenerator = new RobotGenerator(arena);
     }
@@ -42,11 +42,6 @@ public class UserInterface
         scoreLabel = new Label("Score: 999");
         // toolbar.getItems().addAll(btn1, btn2, label);
         toolbar.getItems().addAll(scoreLabel, testBtn);
-
-        testBtn.setOnAction((event) ->
-        {
-            testRobotMovement();
-        });
 
         log = new TextArea();
         log.appendText("Hello\n");
@@ -73,10 +68,7 @@ public class UserInterface
             // On window close, stop all background running threads
             stage.setOnCloseRequest(event -> 
             {
-                player.stopScoreCount();
-                robotGenerator.stop();
-                arena.stopWallBuilder();
-                arena.stopAllRobots();
+                stopAll();
             });
         }
         catch(IllegalStateException ise)
@@ -105,9 +97,12 @@ public class UserInterface
         });
     }
     
-    public void testRobotMovement()
+    /** Stops all background running threads */
+    public void stopAll()
     {
-        // System.out.println("Testing Robot movement");
-        // arena.setRobotPosition(8, 8);
+        player.stopScoreCount();
+        robotGenerator.stop();
+        arena.stopWallBuilder();
+        arena.stopAllRobots();
     }
 }

@@ -17,6 +17,7 @@ public class TestApp
     private ConcurrentHashMap<String, Wall> wallMap = new ConcurrentHashMap<>();
     private BlockingQueue<Wall> wallQueue = new ArrayBlockingQueue<>(10);
     
+    
     public TestApp()
     {}
     
@@ -27,7 +28,8 @@ public class TestApp
         // testScheduledThreadPool();
         // testRandomNumber();
         // testCorners();
-        testRounding();
+        // testRounding();
+        testRobotWaiting();
     }
     
     public void testConcurrentHashMap()
@@ -162,5 +164,14 @@ public class TestApp
         
         int numInt = 7;
         System.out.println("Number = " + numInt + ", (int) / 2 = " + (numInt/2));
+    }
+    
+    /** Simulate a robot waiting for another robot to move */
+    public void testRobotWaiting()
+    {
+        System.out.println("Testing Robot waiting");
+        
+        TestRobotMovement testRobotMovement = new TestRobotMovement();
+        testRobotMovement.main();
     }
 }
