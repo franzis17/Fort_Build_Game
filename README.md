@@ -1,7 +1,7 @@
 # Fort_Build_Game
 
 ## Description
-A simple game written with JavaFX focusing on the concept of multithreading.
+A simple game written with Java focusing on the concept of multithreading.
 
 
 ## How to run
